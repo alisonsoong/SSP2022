@@ -244,22 +244,22 @@ class ODElements:
         return math.sqrt(sum([self.vel[i]**2 for i in range(3)]))
     
     def getAngMoment(self)->list:
-        """ Calculates and returns the angular momentum
+        """ Calculates and returns the specific angular momentum
             Args:
                 None
             Returns:
-                list: angular momentum
+                list: specific angular momentum components
         """
         pos,vel=self.getPos(),self.getVel()
         res=cross(pos,vel)
         return np.array([res[0], res[1], res[2]])
     
     def getAngMomentMag(self)->float:
-        """ Returns the magnitude of the angular momentum
+        """ Returns the magnitude of the specific angular momentum
             Args:
                 None
             Returns:
-                float: the magnitude of angular momentum
+                float: the magnitude of specific angular momentum
         """
         return math.sqrt(sum([self.angMoment[i]**2 for i in range(3)]))
     
@@ -380,10 +380,10 @@ class ODElements:
 class OD:
     '''Class that performs all orbital determination calculations'''
     
-    def __init__(self):
+    def __init__(self, file:str):
         """ Initializes OD class
             Args:
-                None
+                file (str): input file name
             Returns:
                 None
         """
@@ -392,6 +392,10 @@ class OD:
         self.cAU = 173.144643267 #speed of light in au/(mean solar)day  
         self.mu = 1
         self.eps = np.radians(23.4374) #Earth's obliquity
+        self.cAU = 173.144643267 # speed of light in au/(mean solar)day 
+        
+        self.data=Data() # Data object
+        self.inputFile=file
         
     def genElements(self, pos:list, vel:list, time:float, update:bool=True):
         """ Calculates and returns the orbital elements given position, velocity, time
@@ -421,14 +425,15 @@ class OD:
         """
         return self.a, self.e, self.i, self.o, self.v, self.w, self.T, self.M
     
-    def printODElementsErr(self, res:str):
+    def printODElementsErr(self, file:str, date:str):
         """ Prints the OD elements and compares them to results (expected, calculated, % error)
             Args:
-                res (list): results
+                file (str): actual values file name
+                date (str): date that the OD elements were calculated for
             Returns:
                 None
         """
-        self.od.printError(res)
+        self.od.printError(self.data.getODActualData(file, date))
     
     def getT(self)->float:
         """ Returns the time of perihelion
@@ -493,7 +498,9 @@ class OD:
         pos=rotZX(pos,np.deg2rad(self.w),np.deg2rad(self.i))
         pos=rotZX(pos,np.deg2rad(self.o),self.eps)
         
-        rho=pos+self.getSunPos(date)
+        R=self.data.getSunPos(date)
+        if np.array_equal(R, np.array([0,0,0])): raise Exception("Sun Position Not Found in SunPos.txt")
+        rho=pos+R
         rhohat=rho/getMag(rho)
         
         dec=math.asin(rhohat[2])
@@ -510,33 +517,6 @@ class OD:
         
         return ra,dec
         
-    def getSunPos(self, date:str)->list:
-        """ Gets the vector from the Earth to the Sun given the date
-            Args:
-                date (str): the date to use
-            Returns:
-                list: sun vector R
-        """
-        info=np.loadtxt("/home/soonali/Documents/SunPos.txt",dtype=str,delimiter=",")
-        #print(info)
-        timestamps=info[:,1]
-        for i in range(len(timestamps)):
-            if date in timestamps[i]: 
-                line = i
-                break
-       
-        stuff=info[line,:]
-        x,y,z=float(stuff[2]),float(stuff[3]),float(stuff[4])
-        return np.array([x,y,z])
-    
-    def getSunMag(self,date:str)->float:
-        """ Gets the magnitude of the position vector from sun to earth
-            Args:
-                date (str): the date to use
-            Returns:
-                float: the magnitude of vector R
-        """
-        return getMag(getSunPos(date))
         
     def fg(self, tau:float, r2:list, r2dot:list, flag:bool):
         """ Gets the f and g values given one time
@@ -563,8 +543,8 @@ class OD:
     def getFGVals(self, tau1:float, tau3:float, r2:list, r2dot:list, flag1:bool, flag3:bool):
         """ Gets all f and g values
             Args:
-                tau1 (float): the time in Julian Days for observation 1
-                tau3 (float): the time in Julian days for observation 3
+                tau1 (float): the time in Julian Days for observation 1 from obs 2(T1-T2)
+                tau3 (float): the time in Julian days for observation 3 from obs 2(T3-T2)
                 r2 (list): the position vector 2
                 r2dot (list): the velocity vector 2
                 flag1 (bool): True if fourth term of Taylor Series expansion is needed for observation1
@@ -609,6 +589,102 @@ class OD:
      
         return [D0,D11,D12,D13,D21,D22,D23,D31,D32,D33]
         
+
+# Data class
+class Data:
+    '''Class that reads and interprets data from input file'''
+    
+    def __init__(self):
+        """ Initializes the class
+            Args:
+                None
+            Returns:
+                None
+        """
+        self.dict={} # time to index
+        
+    def getInput(self, file:str):
+        info=np.loadtxt(file,dtype=str,delimiter=",")
+        
+    
+    def formatTestInputInfo(self, file:str):
+        """ Returns re-formatted data from test input file (for testing purposes, specifically OD elements generation)
+            Args:
+                file (str): file name
+            Returns:
+                lists: time (in julian days), data [[x,y,z],[dx,dy,dz]], timestamps (strings)
+        """
+        info=np.loadtxt(file,dtype=str,delimiter=",")
+        time=np.array([float(info[i,0]) for i in range(1,len(info))])
+        timestamps=np.copy(info[1:,1])
+        
+        return time,np.array([([float(info[i][2]),float(info[i][3]),float(info[i][4])], 
+                        [float(info[i][5]),float(info[i][6]),float(info[i][7])]) for i in range(1,len(info))]), timestamps
+    
+    def getTestInput(self, file:str, date:str):
+        """ Returns pos, vel, and times for testing asteroid (for testing purposes, specifically OD elements generation)
+            Args:
+                file (str): file name
+                date (str): date for testing
+            Returns:
+                lists: pos, vel, time
+        """
+        time,data,timestamps=self.formatTestInputInfo(file)           
+        line = 0
+        for i in range(len(timestamps)):
+            if date in timestamps[i]: 
+                line = i
+                break
+
+        time,info=times[line],data[line]
+        pos,vel=info[0],info[1]
+        return pos, vel, time
+                               
+    def getODActualData(self, file:str, date:str)->list:
+        """ Returns the actual values for OD elements given file and date 
+            Args:
+                file (str): file name
+                date (str): the date
+            Returns:
+                list: the actual OD elements
+        """
+        info=np.loadtxt(file,dtype=str,delimiter=",")
+        timestamps=info[1:,1]
+    
+        flag=False
+        for i in range(len(timestamps)):
+            if date in timestamps[i]: 
+                line = i
+                flag=True
+                break
+        if not flag: raise Exception("Actual OD elements results not found in file")
+        
+        data = np.array([[float(info[i][j]) for j in range(2,14)] for i in range(1,len(info))])
+
+        return data[line]
+    
+    def getSunPos(self, date:str)->list:
+        """ Gets the vector from the Earth to the Sun given the date
+            Args:
+                date (str): the date to use
+            Returns:
+                list: sun vector R
+        """
+        info=np.loadtxt("/home/soonali/Documents/ODCode/SunPos.txt",dtype=str,delimiter=",")
+        
+        timestamps=info[:,1]
+        flag=False
+        for i in range(len(timestamps)):
+            if date in timestamps[i]: 
+                line = i
+                flag=True
+                break
+        
+        if not flag: return np.array([0,0,0]) # not found
+        
+        stuff=info[line,:]
+        x,y,z=float(stuff[2]),float(stuff[3]),float(stuff[4])
+        return np.array([x,y,z])
         
 
     
