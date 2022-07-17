@@ -431,7 +431,6 @@ class Data:
             
             self.inputData.append([jdtime, date, ra, dec, R])
             self.infoByDate[date] = [jdtime, date, ra, dec, R]
-            print(date)
             self.infoByTime[jdtime] = [jdtime, date, ra, dec, R]
             
         return self.inputData # nothing is formatted, just all information
