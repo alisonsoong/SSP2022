@@ -390,6 +390,8 @@ class Data:
         
         self.infoByTime={}
         self.infoByDate={} # dictionary of values. date is key. format for key: 2018-Jul-14 00:00:00.0000
+        self.sunFileName=""
+        self.inputFileName=""
         
         # constants
         self.JDTIME=0
@@ -398,14 +400,17 @@ class Data:
         self.DEC=3
         self.R=4
         
-    def getInput(self, file:str)->list:
+    def getInput(self, file:str, sunFile:str)->list:
         """ Formats and returns formatted input. Stores into dictionaries, and converts all RA and Dec 
             into decimals. 
             Args:
                 file (str): the input file name
+                sunFile (str): the sun pos file name
             Returns:
                 list: the formatted input [jdtime (float), date (str), ra (float), dec (float), [RX,RY,RZ] (np.array)]
         """ 
+        self.sunFileName=sunFile
+        self.inputFileName=file
         self.info=np.loadtxt(file,dtype=str,delimiter=",")
         # store in dictionary for fast retrieval; also, formats all the dec and ra, converting to decimals
         # [jdtime, date(str), ra, dec, [RX,RY,RZ] (np.array)]
@@ -426,6 +431,7 @@ class Data:
             
             self.inputData.append([jdtime, date, ra, dec, R])
             self.infoByDate[date] = [jdtime, date, ra, dec, R]
+            print(date)
             self.infoByTime[jdtime] = [jdtime, date, ra, dec, R]
             
         return self.inputData # nothing is formatted, just all information
@@ -456,7 +462,7 @@ class Data:
             Returns:
                 floats: ra, dec
         """ 
-        if self.info==None: raise Exception("No input has been loaded up")
+        if np.shape(self.info)==0: raise Exception("No input has been loaded up")
         if not(date==None):
             d=self.infoByDate[date]
             return d[self.RA], d[self.DEC]
@@ -476,7 +482,7 @@ class Data:
             Returns:
                 floats: ra, dec
         """ 
-        if self.info==None: raise Exception("No input has been loaded up")
+        if np.shape(self.info)==0: raise Exception("No input has been loaded up")
         
         d=self.infoByDate[date]
         return d[self.JDTIME]
