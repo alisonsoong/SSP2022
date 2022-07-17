@@ -375,4 +375,177 @@ class ODElements:
         return self.a, self.e, self.i, self.o, self.v, self.w, self.T, self.M
     
     
+# Data class
+class Data:
+    '''Class that reads and interprets data from input file'''
+    
+    def __init__(self):
+        """ Initializes the class
+            Args:
+                None
+            Returns:
+                None
+        """ 
+        self.info=np.array([]) # non formatted data from input file
+        self.inputData=None # formatted data from input file (list)]
+        
+        self.infoByTime={}
+        self.infoByDate={} # dictionary of values. date is key. format for key: 2018-Jul-14 00:00:00.0000
+        
+        # constants
+        self.JDTIME=0
+        self.DATE=1
+        self.RA=2
+        self.DEC=3
+        self.R=4
+        
+    def getInput(self, file:str):
+        """ Formats and returns formatted input. Stores into dictionaries, and converts all RA and Dec 
+            into decimals. 
+            Args:
+                file (str): the input file name
+            Returns:
+                list: the formatted input [jdtime(float), date(str), ra(float), dec(float), [RX,RY,RZ](np.array)]
+        """ 
+        self.info=np.loadtxt(file,dtype=str,delimiter=",")
+        # store in dictionary for fast retrieval; also, formats all the dec and ra, converting to decimals
+        # [jdtime, date(str), ra, dec, [RX,RY,RZ] (np.array)]
+        self.inputData=[]
 
+        for line in range(1,len(self.info)):
+            data=self.info[line]
+            jdtime = float(data[0])
+            date = data[1].strip()
+            
+            strRA,strDec = data[2].split(':'), data[3].split(':')
+            h,m,s=float(strRA[0]),float(strRA[1]),float(strRA[2])
+            ra=HMStoDeg(h,m,s)
+            d,m,s=float(strDec[0]),float(strDec[1]),float(strDec[2])
+            dec=DMStoDeg(d,m,s)
+            
+            R=[float(data[4]),float(data[5]),float(data[6])]
+            
+            self.inputData.append([jdtime, date, ra, dec, R])
+            self.infoByDate[date] = [jdtime, date, ra, dec, R]
+            self.infoByTime[jdtime] = [jdtime, date, ra, dec, R]
+            
+        return self.inputData # nothing is formatted, just all information
+        
+    def getSunInput(self,date:str=None,time:float=None)->list:
+        """ Returns the sun input for a given time
+            Args:
+                date (str): optional; the date for sun vector
+                time (float): optional; the time in Julian days for sun vector
+            Returns:
+                list: the sun vector
+        """ 
+        if np.shape(self.info)==0: raise Exception("No input has been loaded up")
+        if not(date==None):
+            return self.infoByDate[date][self.R]
+            
+        elif not(time==None):
+            return self.infoByTime[time][self.R]
+        
+        else: # nothing has been inputted, throw an exception
+            raise Exception("No time has been given to find sun input")
+        
+    def getRADECInput(self,date:str=None,time:float=None)->list:
+        """ Returns the right ascension and declination for a given time
+            Args:
+                date (str): optional; the date for right ascension and declination
+                time (float): optional; the time in Julian days for right ascension and declination
+            Returns:
+                floats: ra, dec
+        """ 
+        if self.info==None: raise Exception("No input has been loaded up")
+        if not(date==None):
+            d=self.infoByDate[date]
+            return d[self.RA], d[self.DEC]
+            
+        elif not(time==None):
+            d=self.infoByTime[time]
+            return d[self.RA], d[self.DEC]
+            
+        else: # nothing has been inputted, throw an exception
+            raise Exception("No time has been given to find ra")
+    
+    def formatTestInputInfo(self, file:str):
+        """ Returns re-formatted data from test input file (for testing purposes, specifically OD elements generation)
+            Args:
+                file (str): file name
+            Returns:
+                lists: time (in julian days), data [[x,y,z],[dx,dy,dz]], timestamps (strings)
+        """
+        info=np.loadtxt(file,dtype=str,delimiter=",")
+        time=np.array([float(info[i,0]) for i in range(1,len(info))])
+        timestamps=np.copy(info[1:,1])
+        
+        return time,np.array([([float(info[i][2]),float(info[i][3]),float(info[i][4])], 
+                        [float(info[i][5]),float(info[i][6]),float(info[i][7])]) for i in range(1,len(info))]), timestamps
+    
+    def getTestInput(self, file:str, date:str):
+        """ Returns pos, vel, and times for testing asteroid (for testing purposes, specifically OD elements generation)
+            Args:
+                file (str): file name
+                date (str): date for testing
+            Returns:
+                lists: pos, vel, time
+        """
+        times,data,timestamps=self.formatTestInputInfo(file)           
+        line = 0
+        for i in range(len(timestamps)):
+            if date in timestamps[i]: 
+                line = i
+                break
+
+        time,info=times[line],data[line]
+        pos,vel=info[0],info[1]
+        return pos, vel, time
+                               
+    def getODActualData(self, file:str, date:str)->list:
+        """ Returns the actual values for OD elements given file and date 
+            Args:
+                file (str): file name
+                date (str): the date
+            Returns:
+                list: the actual OD elements
+        """
+        info=np.loadtxt(file,dtype=str,delimiter=",")
+        timestamps=info[1:,1]
+    
+        flag=False
+        for i in range(len(timestamps)):
+            if date in timestamps[i]: 
+                line = i
+                flag=True
+                break
+        if not flag: raise Exception("Actual OD elements results not found in file")
+        
+        data = np.array([[float(info[i][j]) for j in range(2,14)] for i in range(1,len(info))])
+
+        return data[line]
+    
+    def getSunPos(self, date:str, file:str)->list:
+        """ Gets the vector from the Earth to the Sun given the date
+            Args:
+                date (str): the date to use
+                file (str): file name
+            Returns:
+                list: sun vector R
+        """
+        info=np.loadtxt(file,dtype=str,delimiter=",")
+        
+        timestamps=info[:,1]
+        flag=False
+        for i in range(len(timestamps)):
+            if date in timestamps[i]: 
+                line = i
+                flag=True
+                break
+        
+        if not flag: return np.array([0,0,0]) # not found
+        
+        stuff=info[line,:]
+        x,y,z=float(stuff[2]),float(stuff[3]),float(stuff[4])
+        return np.array([x,y,z])
+        
