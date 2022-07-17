@@ -374,7 +374,6 @@ class ODElements:
         """
         return self.a, self.e, self.i, self.o, self.v, self.w, self.T, self.M
     
-    
 # Data class
 class Data:
     '''Class that reads and interprets data from input file'''
@@ -449,7 +448,7 @@ class Data:
         else: # nothing has been inputted, throw an exception
             raise Exception("No time has been given to find sun input")
         
-    def getRADECInput(self,date:str=None,time:float=None)->list:
+    def getRADECInput(self,date:str=None,time:float=None):
         """ Returns the right ascension and declination for a given time
             Args:
                 date (str): optional; the date for right ascension and declination
@@ -468,6 +467,20 @@ class Data:
             
         else: # nothing has been inputted, throw an exception
             raise Exception("No time has been given to find ra")
+            
+    def getJDTime(self,date:str)->float:
+        """ Returns Julian Days time given date
+            Args:
+                date (str): optional; the date for right ascension and declination
+                time (float): optional; the time in Julian days for right ascension and declination
+            Returns:
+                floats: ra, dec
+        """ 
+        if self.info==None: raise Exception("No input has been loaded up")
+        
+        d=self.infoByDate[date]
+        return d[self.JDTIME]
+
     
     def formatTestInputInfo(self, file:str):
         """ Returns re-formatted data from test input file (for testing purposes, specifically OD elements generation)
@@ -482,7 +495,7 @@ class Data:
         
         return time,np.array([([float(info[i][2]),float(info[i][3]),float(info[i][4])], 
                         [float(info[i][5]),float(info[i][6]),float(info[i][7])]) for i in range(1,len(info))]), timestamps
-    
+   
     def getTestInput(self, file:str, date:str):
         """ Returns pos, vel, and times for testing asteroid (for testing purposes, specifically OD elements generation)
             Args:
@@ -497,7 +510,7 @@ class Data:
             if date in timestamps[i]: 
                 line = i
                 break
-
+                
         time,info=times[line],data[line]
         pos,vel=info[0],info[1]
         return pos, vel, time
@@ -527,7 +540,7 @@ class Data:
     
     def getSunPos(self, date:str, file:str)->list:
         """ Gets the vector from the Earth to the Sun given the date
-            Args:
+            Args:getSunPos(self, date: str, file: str) ‑> list
                 date (str): the date to use
                 file (str): file name
             Returns:
@@ -551,7 +564,7 @@ class Data:
 
     
 # Final OD Class
-class ODTESTING:
+class ODTesting:
     '''Class that performs all orbital determination calculations'''
     
     def __init__(self, file:str):
@@ -626,7 +639,7 @@ class ODTESTING:
                 rhohat2 (list): a list representing the rhohat2 vector
                 coefD (list): a list of D coefficients [D0,D21,D22,D23]
             Returns:
-                lists: roots (r's), rhos (the corresponding rho magnitudes)
+                lists: roots (r's), rhos
         """
         T1,T3,T=taus[0],taus[1],taus[2]
         D0,D21,D22,D23=coefD[0],coefD[1],coefD[2],coefD[3]
@@ -693,42 +706,47 @@ class ODTESTING:
         return ra,dec
         
         
-    def fg(self, tau:float, r2:list, r2dot:list, flag:bool):
+    def fg(self, tau:float, r2:list, r2dot:list, order:int):
         """ Gets the f and g values given one time
             Args:
                 tau (float): the time in Julian Days
                 r2 (list): the position vector 2
                 r2dot (list): the velocity vector 2
-                flag (bool): True if fourth term of Taylor Series expansion is needed
+                order (int): order of f and g taylor series approximations
             Returns:
                 floats: f, g
         """
         u=self.mu/getMag(r2)**3
-        z=dot(r2,r2dot)/(dot(r2,r2))
-        q=dot(r2dot,r2dot)/(dot(r2,r2))-u
         
-        f=1-1/2*u*tau**2+1/2*u*z*tau**3
-        g=tau-1/6*u*tau**3
-        if flag:
+        f=1-1/2*u*tau**2
+        g=tau
+        
+        if order>=3:
+            z=dot(r2,r2dot)/(dot(r2,r2))
+            q=dot(r2dot,r2dot)/(dot(r2,r2))-u
+            f+=1/2*u*z*tau**3
+            g+=-1/6*u*tau**3
+        
+        if order>=4:
             f+=1/24*(3*u*q-15*u*z**2+u**2)*tau**4
             g+=1/4*u*z*tau**4
         
         return f, g
         
-    def getFGVals(self, tau1:float, tau3:float, r2:list, r2dot:list, flag1:bool, flag3:bool):
+    def getFGVals(self, tau1:float, tau3:float, r2:list, r2dot:list, order1:int, order2:int):
         """ Gets all f and g values
             Args:
                 tau1 (float): the time in Julian Days for observation 1 from obs 2(T1-T2)
                 tau3 (float): the time in Julian days for observation 3 from obs 2(T3-T2)
                 r2 (list): the position vector 2
                 r2dot (list): the velocity vector 2
-                flag1 (bool): True if fourth term of Taylor Series expansion is needed for observation1
-                flag2 (bool): True if fourth term of Taylor Series expansion is needed for observation2
+                order1 (int): Order of Taylor Series expansion for f and g values for observation 1
+                order2 (int): Order of Taylor Series expansion for f and g values for observation 3
             Returns:
                 lists: [f1,f3], [g1,g3]
         """
-        f1,g1=self.fg(tau1,r2,r2dot,flag1)
-        f3,g3=self.fg(tau3,r2,r2dot,flag3)
+        f1,g1=self.fg(tau1,r2,r2dot,order1)
+        f3,g3=self.fg(tau3,r2,r2dot,order2)
         return [f1,f3], [g1,g3]
     
     def getDCoef(self, ra:list, dec:list, R1:list, R2:list, R3:list)->list:
@@ -766,4 +784,5 @@ class ODTESTING:
         
         
 
+    
     
