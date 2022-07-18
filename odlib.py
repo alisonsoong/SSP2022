@@ -125,8 +125,8 @@ def rotZX(v:list,alpha:float,beta:float)->list:
     """ Rotates a vector around z axis with alpha, then rotates around x axis with beta'''
         Args:
             v (list): original vector
-            alpha (float): angle to rotate around z axis
-            beta (float): angle to rotate around x axis
+            alpha (float): angle to rotate around z axis (in radians)
+            beta (float): angle to rotate around x axis (in radians)
         Returns:
             list: rotated vector
     """
@@ -137,6 +137,19 @@ def rotZX(v:list,alpha:float,beta:float)->list:
                 [0,np.cos(beta),-np.sin(beta)],
                 [0,np.sin(beta),np.cos(beta)]])
     return np.dot(np.matmul(x,z),v)
+
+def rotX(v:list,omega:float)->list:
+    """ Rotates a vector around x axis with omega (in radians)'''
+        Args:
+            v (list): original vector
+            omega (float): angle to rotate around x axis (in radians)
+        Returns:
+            list: rotated vector
+    """
+    x=np.array([[1,0,0],
+                [0,np.cos(omega),-np.sin(omega)],
+                [0,np.sin(omega),np.cos(omega)]])
+    return np.matmul(x,v)
 
 # assorted other functions
 
