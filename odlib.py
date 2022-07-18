@@ -368,14 +368,14 @@ class ODElements:
                 None
         """
         # EC, QR, IN, OM, W, Tp, N, MA, TA, A, AD, PR,
-        print("Semi-major axis:", results[9], self.a, error(results[9],self.a))
-        print("Eccentricity:", results[0], self.e, error(results[0],self.e))
-        print("Inclination:",results[2],self.i, error(results[2],self.i))
-        print("Longitude of Ascending Node:",results[3],self.o, error(results[3],self.o))
-        print("True anomaly:",results[8],self.v,error(results[8],self.v))
-        print("Argument of perihelion:",results[4],self.w,error(results[4],self.w))
-        print("Time of Perihelion Passage T:",results[5],self.T,error(results[5],self.T))
-        print("Mean Anomaly:",results[7],self.M,error(results[7],self.M))
+        print("Semi-major axis:", "\n\tactual:",results[9], "\n\tcalculated:",self.a, "\n\terror:",error(results[9],self.a))
+        print("Eccentricity:", "\n\tactual:",results[0], "\n\tcalculated:",self.e, "\n\terror:",error(results[0],self.e))
+        print("Inclination:","\n\tactual:",results[2],"\n\tcalculated:",self.i, "\n\terror:",error(results[2],self.i))
+        print("Longitude of Ascending Node:","\n\tactual:",results[3],"\n\tcalculated:",self.o, "\n\terror:",error(results[3],self.o))
+        #print("True anomaly:",results[8],self.v,error(results[8],self.v))
+        print("Argument of perihelion:","\n\tactual:",results[4],"\n\tcalculated:",self.w, "\n\terror:",error(results[4],self.w))
+        print("Time of Perihelion Passage T:","\n\tactual:",results[5],"\n\tcalculated:", self.T,"\n\terror:",error(results[5],self.T))
+        #print("Mean Anomaly:",results[7],self.M,error(results[7],self.M))
         #print(od.a, od.e, od.i, od.o, od.v, od.w)
         
     def getElements(self):
@@ -413,16 +413,14 @@ class Data:
         self.DEC=3
         self.R=4
         
-    def getInput(self, file:str, sunFile:str)->list:
+    def getInput(self, file:str)->list:
         """ Formats and returns formatted input. Stores into dictionaries, and converts all RA and Dec 
             into decimals. 
             Args:
                 file (str): the input file name
-                sunFile (str): the sun pos file name
             Returns:
                 list: the formatted input [jdtime (float), date (str), ra (float), dec (float), [RX,RY,RZ] (np.array)]
         """ 
-        self.sunFileName=sunFile
         self.inputFileName=file
         self.info=np.loadtxt(file,dtype=str,delimiter=",")
         # store in dictionary for fast retrieval; also, formats all the dec and ra, converting to decimals
@@ -585,10 +583,10 @@ class Data:
 class ODTesting:
     '''Class that performs all orbital determination calculations'''
     
-    def __init__(self, file:str):
+    def __init__(self, inputFile:str):
         """ Initializes OD class
             Args:
-                file (str): input file name
+                inputFile (str): input file name
             Returns:
                 None
         """
@@ -597,10 +595,11 @@ class ODTesting:
         self.cAU = 173.144643267 #speed of light in au/(mean solar)day  
         self.mu = 1
         self.eps = np.radians(23.4374) #Earth's obliquity
-        self.cAU = 173.144643267 # speed of light in au/(mean solar)day 
+        self.toGaussian=365.2568983
+        self.mu = 1
         
         self.data=Data() # Data object
-        self.inputFile=file
+        self.inputFile=inputFile
         
     def genElements(self, pos:list, vel:list, time:float, update:bool=True):
         """ Calculates and returns the orbital elements given position, velocity, time
@@ -672,17 +671,27 @@ class ODTesting:
         F=dot(sunR2,sunR2)
         
         a=-(A**2+A*E+F)
-        b=-self.od.mu*(2*A*B+B*E)
-        c=-self.od.mu**2*B**2
+        b=-self.mu*(2*A*B+B*E)
+        c=-self.mu**2*B**2
         
-        coef=[c,0,0,b,0,0,a,0,1]#[1,0,a,0,0,b,0,0,c]
+        coef=[c,0,0,b,0,0,a,0,1]
         res=poly.polyroots(coef)
 
-        roots=[]
+        temproots=[]
         for val in res: 
-            if np.isreal(val) and np.real(val)>0: roots.append(np.real(val))
+            if np.isreal(val) and np.real(val)>0: temproots.append(np.real(val))
 
-        rhos=[A+B/roots[i]**3 for i in range(len(roots))]
+        temprhos=[A+B/temproots[i]**3 for i in range(len(temproots))]
+        
+        # ignore pairs where rho magnitude is negative
+        roots=[]
+        rhos=[]
+        #print(temproots, temprhos)
+        for i in range(len(temproots)):
+            if temprhos[i]>0.0:
+                roots.append(temproots[i])
+                rhos.append(temprhos[i])
+        
         return roots,rhos
     
     def ephemeris(self, time:float, date:str, sunFile:str):
@@ -724,17 +733,19 @@ class ODTesting:
         return ra,dec
         
         
-    def fg(self, tau:float, r2:list, r2dot:list, order:int):
+    def fg(self, tau:float, r2mag:float, r2dot:list, order:int, r2:list=[]):
         """ Gets the f and g values given one time
             Args:
                 tau (float): the time in Julian Days
-                r2 (list): the position vector 2
+                r2mag (float): the magnitude of r2
                 r2dot (list): the velocity vector 2
                 order (int): order of f and g taylor series approximations
+                r2 (list): optional parameter, the position vector 2
             Returns:
                 floats: f, g
         """
-        u=self.mu/getMag(r2)**3
+        if len(r2)==0: u=self.mu/r2mag**3
+        else: u=self.mu/getMag(r2)**3
         
         f=1-1/2*u*tau**2
         g=tau
@@ -751,23 +762,24 @@ class ODTesting:
         
         return f, g
         
-    def getFGVals(self, tau1:float, tau3:float, r2:list, r2dot:list, order1:int, order2:int):
+    def getFGVals(self, tau1:float, tau3:float, r2mag:float, r2dot:list, order1:int, order2:int, r2:list=[]):
         """ Gets all f and g values
             Args:
                 tau1 (float): the time in Julian Days for observation 1 from obs 2(T1-T2)
                 tau3 (float): the time in Julian days for observation 3 from obs 2(T3-T2)
-                r2 (list): the position vector 2
+                r2mag (float): the magnitude of r2
                 r2dot (list): the velocity vector 2
                 order1 (int): Order of Taylor Series expansion for f and g values for observation 1
                 order2 (int): Order of Taylor Series expansion for f and g values for observation 3
+                r2 (list): optional parameter, the position vector 2
             Returns:
                 lists: [f1,f3], [g1,g3]
         """
-        f1,g1=self.fg(tau1,r2,r2dot,order1)
-        f3,g3=self.fg(tau3,r2,r2dot,order2)
+        f1,g1=self.fg(tau1,r2mag,r2dot,order1,r2)
+        f3,g3=self.fg(tau3,r2mag,r2dot,order2,r2)
         return [f1,f3], [g1,g3]
     
-    def getDCoef(self, ra:list, dec:list, R1:list, R2:list, R3:list)->list:
+    def getDCoef(self, ra:list, dec:list, R1:list, R2:list, R3:list):
         """ Gets the D coefficients given the ra and dec for three observations (in radians)
             Args:
                 ra (list): the right ascensions for three observations (radians)
@@ -776,7 +788,7 @@ class ODTesting:
                 R2 (list): the sun vector for observation 2
                 R3 (list): the sun vector for observation 3
             Returns:
-                list: [D0,D11,D12,D13,D21,D22,D23,D31,D32,D33]
+                list: [D0,D11,D12,D13,D21,D22,D23,D31,D32,D33], [rhohat1, rhohat2, rhohat3]
         """
         ra1,ra2,ra3=ra[0],ra[1],ra[2]
         dec1,dec2,dec3=dec[0],dec[1],dec[2]
@@ -798,9 +810,188 @@ class ODTesting:
         D32=dot(rhohat1, cross(rhohat2,R2))
         D33=dot(rhohat1, cross(rhohat2,R3))
      
-        return [D0,D11,D12,D13,D21,D22,D23,D31,D32,D33]
+        return [D0,D11,D12,D13,D21,D22,D23,D31,D32,D33], np.array([rhohat1, rhohat2, rhohat3])
+    
+    def MoGGenData(self,selTime:list=[],selDate:list=[]):
+        """ Generates the data for Method of Gauss calculations
+            Args:
+                selTime (list): list of chosen times (in Julian days) for observations 1,2,3
+                selDate (list): list of chosen datesfor observations 1,2,3
+            Returns:
+                lists: ra, dec, R1, R2, R3, taus, ts (original times in Julian days)
+        """
+        self.data.getInput(self.inputFile) # formats and generates info
+        # generate data
+        if not(selTime==[]): # using Julian day times
+            ra,dec=[],[]
+            for time in selTime:
+                r,d=self.data.getRADECInput(time=time)
+                ra.append(np.deg2rad(r))
+                dec.append(np.deg2rad(d))
+            R1=self.data.getSunInput(time=selTime[0])
+            R2=self.data.getSunInput(time=selTime[1])
+            R3=self.data.getSunInput(time=selTime[2])
+            # calculate the taus
+            t1,t2,t3=selTime[0],selTime[1],selTime[2]
+            ts=[t1,t2,t3]
+            T1=t1-t2
+            T3=t3-t2
+            T=t3-t1
+            taus = [T1,T3,T] # in Gaussian days
+                
+        elif not(selDate==[]):
+            ra,dec=[],[]
+            for date in selDate:
+                r,d=self.data.getRADECInput(date=date)
+                ra.append(np.deg2rad(r))
+                dec.append(np.deg2rad(d))
+            R1=self.data.getSunInput(date=selDate[0])
+            R2=self.data.getSunInput(date=selDate[1])
+            R3=self.data.getSunInput(date=selDate[2])
+            # calculate the taus given the dates
+            t1,t2,t3=self.data.getJDTime(selDate[0]),self.data.getJDTime(selDate[1]),self.data.getJDTime(selDate[2])
+            ts=[t1,t2,t3]
+            T1=t1-t2
+            T3=t3-t2
+            T=t3-t1
+            taus = [T1*self.k,T3*self.k,T*self.k]
+            
+        else: raise Exception("No data given")
+        
+        return ra,dec,np.array(R1),np.array(R2),np.array(R3),taus,np.array(ts)
+    
+    def MoGCalcRhos(self, rhohats:list, coefD:list, fvals:list, gvals:list):
+        """ Generates the rhos (and their magnitudes) for Method of Gauss calculations
+            Args:
+                rhohats (list): the direction vectors for rhos
+                coefD (list): the D coefficients
+                fvals (list): the f values
+                gvals (list): the g values
+            Returns:
+                lists: rhos, rhomags
+        """
+        f1,f3=fvals
+        g1,g3=gvals
+        D0,D11,D12,D13,D21,D22,D23,D31,D32,D33=coefD
+        C1=g3/(f1*g3-g1*f3)
+        C2=-1
+        C3=-g1/(f1*g3-g1*f3)
+        rho1=(C1*D11+C2*D12+C3*D13)/(C1*D0)
+        rho2=(C1*D21+C2*D22+C3*D23)/(C2*D0)
+        rho3=(C1*D31+C2*D32+C3*D33)/(C3*D0)
+        rhomags=np.array([rho1,rho2,rho3])
+        rhos=np.array([rhohats[0]*rho1, rhohats[1]*rho2, rhohats[2]*rho3])
+        return rhos, rhomags
+    
+    def MoGCalcPos(self, rhos:list, Rs:list)->list:    
+        """ Calculates the r vectors (position of asteroid from sun) for Method of Gauss calculations
+            Args:
+                rhos (list): the position from Earth vectors
+                Rs (list): the position from Sun vectors
+            Returns:
+                lists: rs
+        """
+        return rhos-Rs
+        
+    def MoGGetErr(self, prev:list, cur:list, tolerance:float)->bool:
+        """ Calculates the r vectors (position of asteroid from sun) for Method of Gauss calculations
+            Args:
+                prev (list): previous r vector
+                cur (list): the newly calculated r vector
+                tolerance (float): the tolerance
+            Returns:
+                bool: True if error is good, False if no within tolerance
+        """
+        for i in range(len(prev)):
+            if abs(prev[i]-cur[i])>tolerance: return False
+        return True
+    
+    def MoGGetAdjustedTaus(self, origt:list, rhomags:float)->list:
+        """ Returns adjusted taus for Method of Gauss calculations
+            Args:
+                origt (list): original observation times in Julian days
+                rhomags (list): the magnitude of the rho vectors
+            Returns:
+                list: the adjusted taus
+        """
+        ts=np.copy(origt)-rhomags/self.cAU
+        t1,t2,t3=ts
+        return [(t1-t2)*self.k,(t3-t2)*self.k,(t3-t1)*self.k]
+    
+    def MoG(self,selTime:list=[],selDate:list=[]):
+        """ Performs Method of Gauss calculations to determine orbital elements
+            Args:
+                selTime (list): list of chosen times (in Julian days) for observations 1,2,3
+                selDate (list): list of chosen datesfor observations 1,2,3
+            Returns:
+                None
+        """
+        # generate data
+        ra,dec,R1,R2,R3,taus,ts=self.MoGGenData(selTime,selDate)
+        
+        # calculate the initial estimate for r2 DONE
+        coefD,rhohats=self.getDCoef(ra, dec, R1, R2, R3)
+
+        SELcoefD=[coefD[0],coefD[4],coefD[5],coefD[6]] # [D0,D11,D12,D13,D21,D22,D23,D31,D32,D33] -> [D0,D21,D22,D23]
+        r2MagGuesses,rhoMagGuesses=self.SEL(taus, R2, rhohats[1], SELcoefD)
+        
+        results=[]
+        
+        # calculate the f and g values to second order
+        for r2mag in r2MagGuesses:
+            # initial guesses
+            fvals,gvals=self.getFGVals(taus[0], taus[1], r2mag, [], 2, 2) # using r2mag
+            rhos,rhomags=self.MoGCalcRhos(rhohats, coefD, fvals, gvals)
+            rs=self.MoGCalcPos(rhos, np.array([R1,R2,R3]))
+   
+            # calculate the central velocity vector
+            f1,f3=fvals
+            g1,g3=gvals
+            r2dot = (-f3/(-f3*g1+g3*f1))*rs[0] + (f1/(f1*g3-f3*g1))*rs[2]
+            counter=0
+            timedOut=True
+            
+            while counter<10000: # timeout
+                prev=rs[1]
+                
+                # time adjustment
+                newtaus=self.MoGGetAdjustedTaus(ts, rhomags)
+                
+                fvals,gvals=self.getFGVals(newtaus[0], newtaus[1], r2mag, r2dot, 4, 4, rs[1]) # using r2mag
+                rhos,rhomags=self.MoGCalcRhos(rhohats, coefD, fvals, gvals)
+                rs=self.MoGCalcPos(rhos, np.array([R1,R2,R3]))
+                
+                f1,f3=fvals
+                g1,g3=gvals
+                r2dot = (-f3/(-f3*g1+g3*f1))*rs[0] + (f1/(f1*g3-f3*g1))*rs[2]
+                
+                counter+=1
+                
+                if (self.MoGGetErr(prev, rs[1], 1e-23)): 
+                    timedOut=False
+                    break
+            
+            if timedOut: print("Timed out")
+            else: 
+                # rotate around x axis to get to ecliptic
+                r2=rotX(np.array(rs[1]),-self.eps)
+                r2dot=rotX(r2dot,-self.eps)
+                results.append([r2, r2dot]) # position and velocity
+        
+        for result in results:
+            pos,vel=result
+            self.genElements(pos,np.array(vel)*(2*math.pi)/365.2568983,ts[1])
+        
+    def getError(self, results:list):
+        """ Prints error and results from orbital elements determination after Method of Gauss calculations
+            Args:
+                results (list): [e,0,i,o,w,T,0,0,0,a]
+            Returns:
+                None
+        """
+        self.od.printError(results)
+
         
         
 
-    
     
