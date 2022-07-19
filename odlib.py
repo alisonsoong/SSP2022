@@ -400,7 +400,6 @@ class ODElements:
         return self.a, self.e, self.i, self.o, self.v, self.w, self.T, self.M
 
 # Data class
-# Data class
 class Data:
     '''Class that reads and interprets data from input file'''
     
@@ -617,7 +616,7 @@ class Data:
                 None
         """
         with open(fileName, 'w') as file:
-            file.write(("Date\tTime\t,RA\tDec\n").expandtabs(40))
+            file.write(("Date\tTime\tRA\tDec\n").expandtabs(40))
             for date, time, ra, dec in results:
                 file.write((date+"\t"+time+"\t"+ra+"\t"+dec+"\n").expandtabs(40))
 

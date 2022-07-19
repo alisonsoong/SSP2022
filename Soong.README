@@ -1,9 +1,11 @@
 TODO:
 - monte carlo
+- check output file
 - functions to easily run orbital elements (and files)
-- ephemeris generation function (for more than one day)
+- use f strings for ephemeris generation function (for more than one day)
 - final package
 - finish readme file
+- jd time converter
 
 ----------------- Orbital Determination Code, SSP 2022 -----------------
 Name: Alison Soong
