@@ -16,4 +16,4 @@ Orbital Elements:
 	Argument of Perihelion (deg): 142.4976525114411
 ----------------------------------------------
 Mean Anomaly for July 24, 2022 7:00 UT:
-	5.628886596270218
+	322.5114453240428

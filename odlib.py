@@ -360,6 +360,18 @@ class ODElements:
         E=getAngle(s,c)
         return E-self.e*math.sin(E) if rad else np.rad2deg(E-self.e*math.sin(E))
     
+    def getTimeMeanAnomaly(self, time:float, date:str)->float:
+        """ Calculates mean anomaly for given date
+            Args:
+                time (float): time in Julian days for the Mean Anomaly
+                date (str): date for Mean Anomaly
+            Returns:
+                float: mean anomaly in degrees
+        """
+        n=self.k*math.sqrt(self.mu/(self.a**3))
+        M=np.rad2deg(n*(time-self.T))
+        return M
+    
     def printError(self, results:list):
         """ Prints everything
             Args:
@@ -578,6 +590,37 @@ class Data:
         stuff=info[line,:]
         x,y,z=float(stuff[2]),float(stuff[3]),float(stuff[4])
         return np.array([x,y,z])
+    
+    def getAllSunPos(self, file:str)->list:
+        """ Gets all sun positions and returns as a list
+            Args:
+                file (str): file name
+            Returns:
+                list: list of lists [time, date, sunPos (np.array)]
+        """
+        info=np.loadtxt(file,dtype=str,delimiter=",")
+        results=[]
+        
+        for line in info[1:]:
+            time,date=float(line[0]),line[1].strip()
+            R=np.array([float(line[2]),float(line[3]),float(line[4])])
+            results.append([time,date,R])
+  
+        return results
+
+    def exportEphemeris(self, fileName:str, results:list):
+        """ Exports ephemeris to a file
+            Args:
+                fileName (str): file name for exported ephemeris
+                results (list): all results
+            Returns:
+                None
+        """
+        with open(fileName, 'w') as file:
+            file.write(("Date\tTime\t,RA\tDec\n").expandtabs(40))
+            for date, time, ra, dec in results:
+                file.write((date+"\t"+time+"\t"+ra+"\t"+dec+"\n").expandtabs(40))
+
     
     def printResults(self, fileName:str, pos:list, vel:list, rho:list, a:float, e:float, i:float, o:float, T:float, w:float, date:str, M:float):
         """ Gets the vector from the Earth to the Sun given the date
