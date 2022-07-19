@@ -386,7 +386,8 @@ class ODElements:
                 floats: a,e,i,o,v,w,T,M
         """
         return self.a, self.e, self.i, self.o, self.v, self.w, self.T, self.M
-    
+
+# Data class
 # Data class
 class Data:
     '''Class that reads and interprets data from input file'''
@@ -556,7 +557,7 @@ class Data:
     
     def getSunPos(self, date:str, file:str)->list:
         """ Gets the vector from the Earth to the Sun given the date
-            Args:getSunPos(self, date: str, file: str) ‑> list
+            Args:
                 date (str): the date to use
                 file (str): file name
             Returns:
@@ -577,6 +578,44 @@ class Data:
         stuff=info[line,:]
         x,y,z=float(stuff[2]),float(stuff[3]),float(stuff[4])
         return np.array([x,y,z])
+    
+    def printResults(self, fileName:str, pos:list, vel:list, rho:list, a:float, e:float, i:float, o:float, T:float, w:float, date:str, M:float):
+        """ Gets the vector from the Earth to the Sun given the date
+            Args:
+                fileName (str): exported file name
+                pos (list): position from sun
+                vel (list): the velocity of the asteroid
+                rho (list): the position from Earth
+                a (float): semi major axis
+                e (float): eccentricity
+                i (float): inclination
+                o (float): longitude of ascending node (Degrees)
+                T (float): time of perihelion passage
+                w (float): argument of perihelion (Degrees)
+                date (str): date for calculated mean anomaly
+                M (float): mean anomaly
+            Returns:
+                None
+        """
+        with open(fileName, 'w') as file:
+            file.write("1999 GJ2 Orbit Determination")
+            file.write("\n----------------------------------------------\n")
+            file.write("Position From Sun (r, AU):\n\t" + str(pos))
+            file.write("\nVelocity (AU/day):\n\t"+str(vel))
+            file.write("\nPosition From Earth (rho, AU):\n\t"+str(rho))
+            file.write("\n----------------------------------------------\n")
+            file.write("Orbital Elements:")
+            file.write("\n\tSemi-Major Axis: " + str(a))
+            file.write("\n\tEccentricity: " + str(e))
+            file.write("\n\tInclination (deg): " + str(i))
+            file.write("\n\tLongitude of Ascending Node (deg): " + str(o))
+            file.write("\n\tTime of Perihelion Passage: " + str(T))
+            file.write("\n\tArgument of Perihelion (deg): " + str(w))
+            file.write("\n----------------------------------------------\n")
+            file.write("Mean Anomaly for "+date+":")
+            file.write("\n\t"+str(M))
+            
+        
 
     
 # Final OD Class
