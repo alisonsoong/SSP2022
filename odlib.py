@@ -355,10 +355,10 @@ class ODElements:
             Returns:
                 float: the mean anomaly in degrees or radians
         """
-        s=(self.getPosMag()*math.sin(np.deg2rad(self.v)))/(self.a*math.sqrt(1-self.e**2))
-        c=(self.e+math.cos(np.deg2rad(self.v)))/(1+self.e*math.cos(np.deg2rad(self.v)))
+        s=(self.getPosMag()*math.sin(np.deg2rad(self.v)))/(self.a*np.sqrt(1-self.e**2))
+        c=(self.e+np.cos(np.deg2rad(self.v)))/(1+self.e*np.cos(np.deg2rad(self.v)))
         E=getAngle(s,c)
-        return E-self.e*math.sin(E) if rad else np.rad2deg(E-self.e*math.sin(E))
+        return E-self.e*np.sin(E) if rad else np.rad2deg(E-self.e*np.sin(E))
     
     def getTimeMeanAnomaly(self, time:float, date:str)->float:
         """ Calculates mean anomaly for given date
@@ -368,7 +368,7 @@ class ODElements:
             Returns:
                 float: mean anomaly in degrees
         """
-        n=self.k*math.sqrt(self.mu/(self.a**3))
+        n=self.k*np.sqrt(self.mu/(self.a**3))
         M=np.rad2deg(n*(time-self.T))
         return M
     
@@ -619,6 +619,22 @@ class Data:
             file.write(("Date\tTime\tRA\tDec\n").expandtabs(40))
             for date, time, ra, dec in results:
                 file.write((date+"\t"+time+"\t"+ra+"\t"+dec+"\n").expandtabs(40))
+                
+    def exportMonteCarlo(self, fileName:str, vals:list, results):
+        """ Exports Monte Carlo to a file
+            Args:
+                fileName (str): file name for exported ephemeris
+                vals (list): all vals [num,a,e,i,o,w,T]
+                results (list): real values to compare vals [a,e,i,o,w,t]
+            Returns:
+                None
+        """
+        labels=["a","e","i","o","w","T"]
+        with open(fileName, 'w') as file:
+            for j in range(len(vals)):
+                file.write("----"+str(vals[j][0])+"----\n")
+                for i in range(6):
+                    file.write(labels[i]+": "+str(vals[j][i+1])+" \t error: " + str(error(results[i],vals[j][i+1])) + "\n")
 
     
     def printResults(self, fileName:str, pos:list, vel:list, rho:list, a:float, e:float, i:float, o:float, T:float, w:float, date:str, M:float):
