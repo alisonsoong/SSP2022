@@ -543,28 +543,6 @@ class Data:
         pos,vel=info[0],info[1]
         return pos, vel, time
                                
-    def getODActualData(self, file:str, date:str)->list:
-        """ Returns the actual values for OD elements given file and date 
-            Args:
-                file (str): file name
-                date (str): the date
-            Returns:
-                list: the actual OD elements
-        """
-        info=np.loadtxt(file,dtype=str,delimiter=",")
-        timestamps=info[1:,1]
-    
-        flag=False
-        for i in range(len(timestamps)):
-            if date in timestamps[i]: 
-                line = i
-                flag=True
-                break
-        if not flag: raise Exception("Actual OD elements results not found in file")
-        
-        data = np.array([[float(info[i][j]) for j in range(2,14)] for i in range(1,len(info))])
-
-        return data[line]
     
     def getSunPos(self, date:str, file:str)->list:
         """ Gets the vector from the Earth to the Sun given the date
@@ -677,7 +655,7 @@ class Data:
 
     
 # Final OD Class
-class ODTesting:
+class OD:
     '''Class that performs all orbital determination calculations'''
     
     def __init__(self, inputFile:str):
@@ -726,25 +704,6 @@ class ODTesting:
         """
         return self.a, self.e, self.i, self.o, self.v, self.w, self.T, self.M
     
-    def printODElementsErr(self, file:str, date:str):
-        """ Prints the OD elements and compares them to results (expected, calculated, % error)
-            Args:
-                file (str): actual values file name
-                date (str): date that the OD elements were calculated for
-            Returns:
-                None
-        """
-        self.od.printError(self.data.getODActualData(file, date))
-    
-    def getT(self)->float:
-        """ Returns the time of perihelion
-            Args:
-                None
-            Returns:
-                float: time of perihelion
-        """
-        return self.T # time of perihelion
-    
     def SEL(self, taus:list, sunR2:list, rhohat2:list, coefD:list):
         """ Scalar Equation of Lagrange to calculate the roots (r) and rhos corresponding to each r
             Args:
@@ -788,21 +747,23 @@ class ODTesting:
             if temprhos[i]>0.0:
                 roots.append(temproots[i])
                 rhos.append(temprhos[i])
+                
+        
         
         return roots,rhos
     
-    def ephemeris(self, time:float, date:str, sunFile:str):
+    def ephemeris(self, time:float, date:str, file:str="", sunPos:list=np.array([])):
         """ Calculates RA and Dec given time and date, using previously calculated orbital elements
             Args:
                 time (float): time to determine ephemeris for in Julian Days
                 date (str): date for which to determine ephemeris
-                sunFile (str): file name for sun positions
+                file (str): file name for sun positions; optional
             Returns:
                 floats: ra, dec
         """
         n=self.k*math.sqrt(self.mu/(self.a**3))
         M=n*(time-self.T)
-        E=newton(lambda E:M - E + self.e*np.sin(E), lambda E: -1+self.e*np.cos(E), M, 1e-14)
+        E=newton(lambda E:M - E + self.e*np.sin(E), lambda E: -1+self.e*np.cos(E), M, 1e-17)
         
         pos=np.array([self.a*math.cos(E)-self.a*self.e, self.a*math.sqrt(1-self.e**2)*math.sin(E), 0])
         
@@ -810,7 +771,9 @@ class ODTesting:
         pos=rotZX(pos,np.deg2rad(self.w),np.deg2rad(self.i))
         pos=rotZX(pos,np.deg2rad(self.o),self.eps)
         
-        R=self.data.getSunPos(date, sunFile)
+        if file=="": # no file given, use sunPos
+            R=sunPos
+        else: R=self.data.getSunPos(date, file)
         if np.array_equal(R, np.array([0,0,0])): raise Exception("Sun Position Not Found in SunPos.txt")
         rho=pos+R
         rhohat=rho/getMag(rho)
@@ -909,53 +872,63 @@ class ODTesting:
      
         return [D0,D11,D12,D13,D21,D22,D23,D31,D32,D33], np.array([rhohat1, rhohat2, rhohat3])
     
-    def MoGGenData(self,selTime:list=[],selDate:list=[]):
+    def MoGGenData(self,loaded:bool,selTime:list=[],selDate:list=[],ra:list=[],dec:list=[]):
         """ Generates the data for Method of Gauss calculations
             Args:
+                loaded (bool): True if data is already loaded
                 selTime (list): list of chosen times (in Julian days) for observations 1,2,3
                 selDate (list): list of chosen datesfor observations 1,2,3
+                ra (list): list of right ascensions
+                dec (list): list of declinations
             Returns:
                 lists: ra, dec, R1, R2, R3, taus, ts (original times in Julian days)
         """
-        self.data.getInput(self.inputFile) # formats and generates info
-        # generate data
-        if not(selTime==[]): # using Julian day times
-            ra,dec=[],[]
-            for time in selTime:
-                r,d=self.data.getRADECInput(time=time)
-                ra.append(np.deg2rad(r))
-                dec.append(np.deg2rad(d))
-            R1=self.data.getSunInput(time=selTime[0])
-            R2=self.data.getSunInput(time=selTime[1])
-            R3=self.data.getSunInput(time=selTime[2])
-            # calculate the taus
-            t1,t2,t3=selTime[0],selTime[1],selTime[2]
-            ts=[t1,t2,t3]
-            T1=t1-t2
-            T3=t3-t2
-            T=t3-t1
-            taus = [T1,T3,T] # in Gaussian days
-                
-        elif not(selDate==[]):
-            ra,dec=[],[]
-            for date in selDate:
-                r,d=self.data.getRADECInput(date=date)
-                ra.append(np.deg2rad(r))
-                dec.append(np.deg2rad(d))
-            R1=self.data.getSunInput(date=selDate[0])
-            R2=self.data.getSunInput(date=selDate[1])
-            R3=self.data.getSunInput(date=selDate[2])
-            # calculate the taus given the dates
-            t1,t2,t3=self.data.getJDTime(selDate[0]),self.data.getJDTime(selDate[1]),self.data.getJDTime(selDate[2])
-            ts=[t1,t2,t3]
-            T1=t1-t2
-            T3=t3-t2
-            T=t3-t1
-            taus = [T1*self.k,T3*self.k,T*self.k]
-            
-        else: raise Exception("No data given")
-        
-        return ra,dec,np.array(R1),np.array(R2),np.array(R3),taus,np.array(ts)
+        if not loaded:
+            self.data.getInput(self.inputFile) # formats and generates info
+            # generate data
+            if not(selTime==[]): # using Julian day times
+                if ra==[] and dec==[]:
+                    ra,dec=[],[]
+                    for time in selTime:
+                        r,d=self.data.getRADECInput(time=time)
+                        ra.append(np.deg2rad(r))
+                        dec.append(np.deg2rad(d))
+                R1=self.data.getSunInput(time=selTime[0])
+                R2=self.data.getSunInput(time=selTime[1])
+                R3=self.data.getSunInput(time=selTime[2])
+                # calculate the taus
+                t1,t2,t3=selTime[0],selTime[1],selTime[2]
+                ts=[t1,t2,t3]
+                T1=t1-t2
+                T3=t3-t2
+                T=t3-t1
+                taus = [T1,T3,T] # in Gaussian days
+
+            elif not(selDate==[]):
+                if ra==[] and dec==[]:
+                    ra,dec=[],[]
+                    for date in selDate:
+                        r,d=self.data.getRADECInput(date=date)
+                        ra.append(np.deg2rad(r))
+                        dec.append(np.deg2rad(d))
+                R1=self.data.getSunInput(date=selDate[0])
+                R2=self.data.getSunInput(date=selDate[1])
+                R3=self.data.getSunInput(date=selDate[2])
+                # calculate the taus given the dates
+                t1,t2,t3=self.data.getJDTime(selDate[0]),self.data.getJDTime(selDate[1]),self.data.getJDTime(selDate[2])
+                ts=[t1,t2,t3]
+                T1=t1-t2
+                T3=t3-t2
+                T=t3-t1
+                taus = [T1*self.k,T3*self.k,T*self.k]
+
+            else: raise Exception("No data given")
+            self.loadedValues=[ra,dec,np.array(R1),np.array(R2),np.array(R3),taus,np.array(ts)]
+        else:
+            if not(ra==[] and dec==[]):
+                self.loadedValues[0] = ra
+                self.loadedValues[1] = dec
+        return self.loadedValues
     
     def MoGCalcRhos(self, rhohats:list, coefD:list, fvals:list, gvals:list):
         """ Generates the rhos (and their magnitudes) for Method of Gauss calculations
@@ -1015,16 +988,20 @@ class ODTesting:
         t1,t2,t3=ts
         return [(t1-t2)*self.k,(t3-t2)*self.k,(t3-t1)*self.k]
     
-    def MoG(self,selTime:list=[],selDate:list=[]):
+    def MoG(self,selTime:list=[],selDate:list=[],override:bool=True,ra:list=[],dec:list=[],loaded:bool=False):
         """ Performs Method of Gauss calculations to determine orbital elements
             Args:
                 selTime (list): list of chosen times (in Julian days) for observations 1,2,3
                 selDate (list): list of chosen datesfor observations 1,2,3
+                override (bool): boolean, True if override info
+                ra (list): optional list of right ascensions
+                dec (list): optional list of declinations
+                loaded (bool): optional, True if all data is already loaded (speeds up run time)
             Returns:
                 None
         """
         # generate data
-        ra,dec,R1,R2,R3,taus,ts=self.MoGGenData(selTime,selDate)
+        ra,dec,R1,R2,R3,taus,ts=self.MoGGenData(False,selTime,selDate,ra,dec)
         
         # calculate the initial estimate for r2 DONE
         coefD,rhohats=self.getDCoef(ra, dec, R1, R2, R3)
@@ -1047,8 +1024,9 @@ class ODTesting:
             r2dot = (-f3/(-f3*g1+g3*f1))*rs[0] + (f1/(f1*g3-f3*g1))*rs[2]
             counter=0
             timedOut=True
+            timeout=time.time() + 60*3 # timeout after 3 minutes
             
-            while counter<10000: # timeout
+            while counter<5000 and time.time()<timeout: # timeout
                 prev=rs[1]
                 
                 # time adjustment
@@ -1068,16 +1046,40 @@ class ODTesting:
                     timedOut=False
                     break
             
-            if timedOut: print("Timed out")
-            else: 
+            if not timedOut:
                 # rotate around x axis to get to ecliptic
                 r2=rotX(np.array(rs[1]),-self.eps)
                 r2dot=rotX(r2dot,-self.eps)
-                results.append([r2, r2dot]) # position and velocity
+                rho2=rotX(rhos[1],-self.eps)
+                results.append([r2, r2dot, rho2]) # position and velocity
         
-        for result in results:
-            pos,vel=result
+        resIndex=0
+        if len(results)>1: # get user input to choose which result to use 
+            for i in range(len(results)):
+                print("Result",str(i)+":")
+                print("\tPos from Sun:",r2,"\n\tVel:",r2dot,"\n\tPos from Earth:",rho2,"\n")
+
+            while True:
+                try: 
+                    resIndex=int(input("Choose which result to use (int): "))
+                    if not(0<=resIndex<len(results)): resIndex/=0 # throw an error
+                    break
+                except:
+                    print("Enter a valid integer")
+        
+        if len(results)==0: return False, 0, 0, 0, 0, 0, 0
+            
+        # get final answers
+        pos,vel,rho=results[resIndex]
+        
+        if override:
             self.genElements(pos,np.array(vel)*(2*math.pi)/365.2568983,ts[1])
+            self.vel = vel
+            self.pos = pos
+            self.rho = rho
+        else:
+            a,e,i,o,v,w,T,M=self.genElements(pos,np.array(vel)*(2*math.pi)/365.2568983,ts[1], update=False)
+            return True, a,e,i,o,w,T
         
     def getError(self, results:list):
         """ Prints error and results from orbital elements determination after Method of Gauss calculations
@@ -1086,9 +1088,129 @@ class ODTesting:
             Returns:
                 None
         """
+        # adjust time of perihelion from results to match period of calculated time of perihelion
+        period=results[9]**(3/2)*self.toGaussian
+        results[5]=self.time-((self.time-results[5])%period) # subtract the change in time since the last perihelion from the obs 2 time 
         self.od.printError(results)
+        
+    def exportResults(self, time:float, date:str, fileName:str):
+        """ Exports results to a file
+            Args:
+                time (float): time in Julian days for the Mean Anomaly
+                date (str): date for Mean Anomaly
+                fileName (str): the exported file name
+            Returns:
+                None
+        """
+        M=self.od.getTimeMeanAnomaly(time, date)
+        self.data.printResults(fileName, self.pos, self.vel/self.toGaussian*(2*math.pi), self.rho, self.a, self.e, self.i, self.o, self.T, self.w, date, M)
+        
+    def genEphemeris(self, inputFile:str, outputFile:str):
+        """ Generates ephemeris for all times in a given sun position file. Exports to an output file
+            Args:
+                inputFile (str): input file name
+                outputFile (str): output file name
+            Returns:
+                None
+        """
+        results=[]
+        for time,date,R in self.data.getAllSunPos(inputFile):
+            ra,dec=self.ephemeris(time, date, sunPos=R)
+            ra=str(ra[0]) + " " + str(ra[1]) + " " + str(ra[2])
+            if dec[0]<0: sign="-"
+            else: sign="+"
+            dec=sign+str(dec[0]) + " " + str(dec[1]) + " " + str(dec[2])
+            results.append([date,str(time),ra,dec])
+        
+        self.data.exportEphemeris(outputFile, results)
+        
+    def monteCarlo(self, n:int, files:str, outputFile:str, results:list, selTime:list=[], selDate:list=[]):
+        """ Using uncertainty, runs through Method of Gauss n-times to generate orbital elements. 
+            Outputs to file.
+            Args:
+                n (int): number of times to run monteCarlo
+                files (list): list of fits file names
+                outputFile (str): the output file name
+                results (list): the actual values for error analysis [a, e, i, o, w, T]
+                selTime (list): optional; the selected times for which to run Method of Gauss
+                selDate (list): optional; the selected dates for which to run Method of Gauss
+            Returns:
+                None
+        """
+        rmsDec,rmsRA=[],[]
+        for file in files:
+            data = fits.open(file)[1].data
+            
+            fieldDec, indexDec = data.field_dec[:], data.index_dec[:]
+            fieldRA, indexRA = data.field_ra[:], data.index_ra[:]
+            
+            dec = np.sqrt(1/int(fieldDec.shape[0]) * sum([(indexDec[i]-fieldDec[i])**2 for i in range(int(fieldDec.shape[0]))]))
+            ra = np.sqrt(1/int(fieldRA.shape[0]) * sum([(indexRA[i]-fieldRA[i])**2 for i in range(int(fieldDec.shape[0]))]))
+            
+            rmsDec.append(dec)
+            rmsRA.append(ra)
+            
+            
+        ora, odec, R1, R2, R3, taus, ts = self.MoGGenData(False,selTime=selTime,selDate=selDate)
+        
+        vals=[]
+        num=0
+        for trial in range(n):
+            newdec = [np.deg2rad(np.random.normal()*rmsDec[i] + np.rad2deg(odec[i])) for i in range(3)]
+            newra = [np.deg2rad(np.random.normal()*rmsRA[i] + np.rad2deg(ora[i])) for i in range(3)]
+            works, a, e, i, o, w, T=self.MoG(selTime=selTime,selDate=selDate,override=False,ra=newra,dec=newdec,loaded=True)
+            if works:
+                num+=1
+                calcVals=[num,a,e,i,o,w,T] # sus
+                vals.append(calcVals)
+                vals.append(calcVals)
+                
+        # adjust time of perihelion for results
+        # for time of perihelion, need to adjust to be close to the given observation time
+        # because our calculated time of perihelion is closest to the given observation time
+        period=results[0]**(3/2)*self.toGaussian
+        results[5]=ts[1]-((ts[1]-results[5])%period) # subtract the change in time since the last perihelion from the obs 2 time 
+                
+            
+        # write to output file
+        self.data.exportMonteCarlo(outputFile, vals.copy(), results)
+        
+        # histograms
+        labels=["","Semi-Major Axis","Eccentricity", "Inclination", "Longitude of Ascending Node", "Argument of Perihelion", "Time of Perihelion Passage"]
+        xlabels=["AU","Value","Degrees","Degrees","Degrees","Julian Day Number"]
+        custom_lines = [Line2D([0], [0], color='black', linestyle='dashed',lw=1), Line2D([0], [0], color='blue', lw=1)]
+  
+        for j in range(5):
+            mean=sum([vals[i][1+j] for i in range(len(vals))])/len(vals)
+            sdom=np.sqrt(sum([(vals[i][j+1]-mean)**2 for i in range(len(vals))])/len(vals))
+            
+            plt.hist([vals[i][1+j] for i in range(len(vals))],bins=20)
+            plt.axvline(results[j], color='k', linestyle='dashed', linewidth=1)
+            plt.axvline(mean, color='b', linewidth=1)
+            plt.title(labels[1+j])
+            plt.legend(custom_lines, ['True Value', 'Mean'])
+            plt.xlabel(xlabels[j])
+            plt.ylabel("Frequency")
+            plt.show()
 
-        
-        
+            print(labels[j+1]+": \n\tmean: "+str(mean)+"\n\terror: " + str(error(results[j],mean)) + "\n\tstandard deviation of mean: " + str(sdom) + "\n")
+
+        # special case for time of perihelion
+        mean=sum([vals[i][6] for i in range(len(vals))])/len(vals)
+        sdom=np.sqrt(sum([(vals[i][6]-mean)**2 for i in range(len(vals))])/len(vals))
+            
+        plt.hist([vals[i][6] for i in range(len(vals))],bins=20)
+        plt.axvline(results[5], color='k', linestyle='dashed', linewidth=1)
+        plt.axvline(mean, color='b', linewidth=1)
+        plt.title(labels[6])
+        plt.legend(custom_lines, ['True Value', 'Mean'])
+        plt.xlabel(xlabels[5])
+        plt.ylabel("Frequency")
+        plt.show()
+
+        print(labels[6]+": \n\tmean: "+str(mean)+ "\n\terror: " + str(error(results[5],mean)) + "\n\tstandard deviation of mean: " + str(sdom) + "\n")
+
+  
+    
 
     
