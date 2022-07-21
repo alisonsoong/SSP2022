@@ -1214,7 +1214,63 @@ class OD:
 
         print(labels[6]+": \n\tmean: "+str(mean)+ "\n\terror: " + str(error(results[5],mean)) + "\n\tstandard deviation of mean: " + str(sdom) + "\n")
 
-  
+ 
+# final functions
+def RunCompleteOD(iterations:int, inputFile:str, fitsFiles:list, sunFile:str, dates:list, results:list):
+    """ 
+        Runs complete orbit determination code. Generates three files:
+            SoongODResults.txt: the results of orbital determination
+            SoongMonteCarloOutput.txt: the results from the Monte Carlo simulation
+            SoongGeneratedEphemeris.txt: the results from the ephemeris generation
+        Args: 
+            iterations (int): the number of iteration for which to run the Monte Carlo simulation
+            inputFile (str): path for file containing observations to determine orbital elements
+            fitsFiles (list): list of strings describing paths for the three fits files for Monte Carlo sim
+            sunFile (str): path for file containing times and sun positions for ephemeris generation
+            dates (list): list of dates for orbital elements determination
+            results (list): the actual values for orbital elements in the format [a,e,i,o,w,m,T] 
+        Returns:
+            None
+    """
+    # generate orbital elements
+    data=Data()
+    od=OD(inputFile)
+    od.MoG(selDate=dates)
     
+    # determine error
+    a,e,i,o,w,m,T = results
+    print("--- Results from orbital elements determination ---")
+    od.getError([e,0,i,o,w,T,0,0,0,a])
+    od.exportResults(2459784.7916667, "July 24, 2022 7:00 UT", "SoongODResults.txt") 
+    
+    # Monte Carlo
+    results = [a,e,i,o,w,T] 
+    print("\n--- Monte Carlo Simulation ---")
+    od.monteCarlo(iterations, fitsFiles, "SoongMonteCarloOutput.txt", results, selDate=dates)
+    
+    # generate the ephemeris
+    od.genEphemeris(sunFile, "SoongGeneratedEphemeris.txt")
+    print("--- Ephemeris generation completed ---")
 
     
+def GenerateEphemeris(inputFile:str, ODdates:list, sunFile:str):
+    """ 
+        Outputs ephemeris to file. Generates one file:
+            GeneratedEphemeris.txt: the results of ephemeris generation
+        Args: 
+            inputFile (str): path for file containing observations to determine orbital elements
+            ODdates (list): list of dates for orbital elements determination
+            sunFile (str): path for file containing times and sun positions for ephemeris generation
+        Returns:
+            None
+    """
+    
+    # calculating orbital elements
+    data=Data()
+    od=OD(inputFile)
+    od.MoG(selDate=ODdates)
+    
+    # generate ephemeris
+    od.genEphemeris(sunFile, "GeneratedEphemeris.txt")
+    
+    print("Finished generating ephemeris")
