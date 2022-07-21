@@ -1,0 +1,44 @@
+----------------- Orbital Determination Code, SSP 2022 -----------------
+Name: Alison Soong
+Date: July 21, 2022
+Asteroid: 1999 GJ2
+Team: Team 01 - Glacier
+Teammates: Tyler Chen, Anoushka Chitnis, Sam Kleiman
+------------------------------------------------------------------------
+API
+------------------------------------------------------------------------
+
+View the API for the OD code using pdoc
+
+Instructions:
+
+   - Install pdoc (https://pypi.org/project/pdoc/) using pip
+   - Download SoongSSP2022 folder
+   - Open up Terminal
+   - Navigate to the directory
+   - Type the following:
+        
+        pdoc --http localhost:XXXX odlib.py
+        
+        (where XXXX is any four digit number)
+        
+   - if the local host number is already being used, 
+     pick another four digit number
+      
+------------------------------------------------------------------------
+Determine Orbital Elements
+------------------------------------------------------------------------
+
+Generate the orbital elements for 1999 GJ2 (or any asteroid)
+
+Instructions:
+Sun vectors: from 463 to Sun (sol) with equatorial, apparent states, au and days
+
+
+------------------------------------------------------------------------
+Ephemeris Generation
+------------------------------------------------------------------------
+
+
+
+
