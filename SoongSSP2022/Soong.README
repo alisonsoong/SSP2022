@@ -1,17 +1,21 @@
------------------ Orbital Determination Code, SSP 2022 -----------------
+-------------------------- Orbital Determination Code, SSP 2022 ----------------------------
+
 Name: Alison Soong
 Date: July 21, 2022
 Asteroid: 1999 GJ2
 Team: Team 01 - Glacier
 Teammates: Tyler Chen, Anoushka Chitnis, Sam Kleiman
-------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------
 API
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------
 
 View the API for the OD code using pdoc
 
 Instructions:
 
+   Option 1:
+   
    - Install pdoc (https://pypi.org/project/pdoc/) using pip
    - Download SoongSSP2022 folder
    - Open up Terminal
@@ -22,23 +26,141 @@ Instructions:
         
         (where XXXX is any four digit number)
         
-   - if the local host number is already being used, 
+   - If the local host number is already being used, 
      pick another four digit number
+   - Open link in web browser
+     
+   Option 2:
+   
+   - After installing pdoc, downloading the SoongSSP2022 folder,
+     opening Terminal, navigating to the directory, type exactly:
+     
+        pdoc --http localhost:1111 odlib.py
+        
+        (note how the four digit number is specifically 1111)
+        
+   - Open the folder and open the html file 
+   
+        odlib API documentation.html
+        
+     This should open a web browser
       
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------
 Determine Orbital Elements
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------
 
-Generate the orbital elements for 1999 GJ2 (or any asteroid)
+Generate the orbital elements for 1999 GJ2 (or any asteroid) in only a few steps!
 
-Instructions:
+Steps to run RunCompleteOD(), which will generate the orbital elements, run a Monte Carlo 
+simulation, and generate an ephemeris:
+    
+    Step 1) Download SoongSSP2022 to Desktop
+    Step 2) Change files in input and fits folders as needed
+    Step 3) Open ODCodeFinal.ipynb
+    Step 4) Change file paths and other input information
+
+-- STEP 1 : DOWNLOAD --
+
+Download SoongSSP2022 to Desktop.
+
+-- STEP 2 : FILES --
+
+INPUT
+
+Two files with input information are required to run this program. 
+
+--> SoongInput.txt
+
+    Holds all data collected for the asteroid whose orbit will 
+    be determined with this program. The formatting is as follows:
+        
+        The first line is the key:
+            
+            JDTDB, Calendar Date, RA, Dec, RX, RY, RZ,
+            
+        Subsequent lines include comma separated values that correspond to the key:
+        
+        JDTDB = Time in Julian days (XXXXXXX.XXXX, as many significant figures as possible)
+        Calendar Date = Date and Time (YYYY-MM-DD XX:XX:XX.XXX)
+        RA = Right Ascension (XX:XX:XX.XX)
+        Dec = Declination (+/-XX:XX:XX.X)
+        RX, RY, RZ = Sun position components.
+            
+            Generate the sun positions in JPL Horizons 
+            (https://ssd.jpl.nasa.gov/horizons/app.html#/) using
+            the following settings:
+
+                Ephemeris Type: Vector Table
+                Target Body: Sun [Sol] 
+                Coordinate Center: Sommers-Bausch Observatory, Boulder [code: 463] 
+                Reference Plance Equatorial-aligned
+                Vector Correction: apparent states
+                Output Units: au and days
+                CSV Format <-- IMPORTANT
+                (Everything else should be default)
+                
+        Example: (one line of data, should be in exactly one line following the key)
+            
+            2459758.6819656, 2022-06-28 04:22:01.830, 16:29:13.66, +11:49:48.9, 
+            -1.093326865083951E-01,  9.273537237996555E-01,  4.019653636246575E-01, 
+
+--> 1999GJ2SunPos.txt
+
+    Holds data of times and corresponding Sun position relative to Earth. Each line/time 
+    will be used in ephemeris generation.
+    
+    Generate the data in JPL Horizons (https://ssd.jpl.nasa.gov/horizons/app.html#/) using
+    the following settings:
+    
+        Ephemeris Type: Vector Table
+        Target Body: Sun [Sol] 
+        Coordinate Center: Sommers-Bausch Observatory, Boulder [code: 463] 
+        Reference Plance Equatorial-aligned
+        Vector Correction: apparent states
+        Output Units: au and days
+        CSV Format <-- IMPORTANT
+        (Everything else should be default)
+        
+    Copy and paste the results into 1999GJ2SunPos.txt. 
+    
+    NOTE: Data should start on line 2! The first line of the file should be the following: 
+        
+        JDTDB, Calendar Date (TDB), X, Y, Z, VX, VY, VZ, LT, RG, RR,
+
+FITS
+
+Navigate to SoongSSP2022/fits. Three fits files should be in this folder:
+
+    - they will be used for the Monte Carlo simulation
+    - they must correspond to the 
+
+Rename to MMDD.fits (Month and Day).
+
+-- STEP 3 : OPEN --
+
+-- STEP 4 : INPUT --
+
+-- Finally, run first cell in ODCodeFinal.ipynb --
+
 Sun vectors: from 463 to Sun (sol) with equatorial, apparent states, au and days
 
+SoongGeneratedEphemeris.txt
+SoongMonteCarloOutput.txt
+SoongODResults.txt
 
-------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------
 Ephemeris Generation
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------
 
+Steps to run GenerateEphemeris((), which will generate an ephemeris:
+    
+    Step 1) Download SoongSSP2022 to Desktop
+    Step 2) Change files in input and fits folders as needed
+    Step 3) Open ODCodeFinal.ipynb
+    Step 4) Change file paths
 
+Results are generated in the following document in the SoongSSP2022 folder:
 
+    GeneratedEphemeris.txt
 
