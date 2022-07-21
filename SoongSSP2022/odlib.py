@@ -1217,12 +1217,11 @@ class OD:
  
 # final functions
 def RunCompleteOD(iterations:int, inputFile:str, fitsFiles:list, sunFile:str, dates:list, results:list):
-    """ 
-        Runs complete orbit determination code. Generates three files:
-            SoongODResults.txt: the results of orbital determination
-            SoongMonteCarloOutput.txt: the results from the Monte Carlo simulation
-            SoongGeneratedEphemeris.txt: the results from the ephemeris generation
-        Args: 
+    """ Runs complete orbit determination code. Generates three files:
+            SoongODResults.txt (the results of orbital determination),
+            SoongMonteCarloOutput.txt (the results from the Monte Carlo simulation),
+            SoongGeneratedEphemeris.txt (the results from the ephemeris generation)
+        Args:
             iterations (int): the number of iteration for which to run the Monte Carlo simulation
             inputFile (str): path for file containing observations to determine orbital elements
             fitsFiles (list): list of strings describing paths for the three fits files for Monte Carlo sim
@@ -1232,6 +1231,7 @@ def RunCompleteOD(iterations:int, inputFile:str, fitsFiles:list, sunFile:str, da
         Returns:
             None
     """
+ 
     # generate orbital elements
     data=Data()
     od=OD(inputFile)
@@ -1254,17 +1254,16 @@ def RunCompleteOD(iterations:int, inputFile:str, fitsFiles:list, sunFile:str, da
 
     
 def GenerateEphemeris(inputFile:str, ODdates:list, sunFile:str):
-    """ 
-        Outputs ephemeris to file. Generates one file:
-            GeneratedEphemeris.txt: the results of ephemeris generation
-        Args: 
+    """ Outputs ephemeris to file. Generates one file:
+            GeneratedEphemeris.txt (the results of ephemeris generation)
+        Args:
             inputFile (str): path for file containing observations to determine orbital elements
             ODdates (list): list of dates for orbital elements determination
             sunFile (str): path for file containing times and sun positions for ephemeris generation
         Returns:
             None
     """
-    
+ 
     # calculating orbital elements
     data=Data()
     od=OD(inputFile)
