@@ -1,7 +1,11 @@
 import numpy as np
 import math
+import time
 import numpy.polynomial.polynomial as poly
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from astropy.io import fits
+from odlib import *
 
 # angles/radians (declination and right ascension)
 
