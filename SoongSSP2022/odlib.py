@@ -645,14 +645,14 @@ class Data:
             file.write("\nPosition From Earth (rho, AU):\n\t"+str(rho))
             file.write("\n----------------------------------------------\n")
             file.write("Orbital Elements:")
-            file.write("\n\tSemi-Major Axis: " + str(a))
+            file.write("\n\tSemi-Major Axis (AU): " + str(a))
             file.write("\n\tEccentricity: " + str(e))
             file.write("\n\tInclination (deg): " + str(i))
             file.write("\n\tLongitude of Ascending Node (deg): " + str(o))
-            file.write("\n\tTime of Perihelion Passage: " + str(T))
+            file.write("\n\tTime of Perihelion Passage (Julian days): " + str(T))
             file.write("\n\tArgument of Perihelion (deg): " + str(w))
             file.write("\n----------------------------------------------\n")
-            file.write("Mean Anomaly for "+date+":")
+            file.write("Mean Anomaly (deg) for "+date+":")
             file.write("\n\t"+str(M))
             
         
