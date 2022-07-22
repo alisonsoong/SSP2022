@@ -589,18 +589,37 @@ class Data:
   
         return results
 
-    def exportEphemeris(self, fileName:str, results:list):
+    def exportEphemeris(self, fileName:str, results:list, actualEph:str):
         """ Exports ephemeris to a file
             Args:
                 fileName (str): file name for exported ephemeris
                 results (list): all results
+                actualEph (str): file path for actual ephemeris from JPL horizons
             Returns:
                 None
         """
+        actualRA,actualDec=[],[]
+        if not(actualEph==""):
+            data=np.loadtxt(actualEph,dtype=str,delimiter=",")[1:,3:]
+            for i in range(len(data)):
+                ra=data[i][0].split()
+                dec=data[i][1].split()
+                actualRA.append(HMStoDeg(float(ra[0]),float(ra[1]),float(ra[2])))
+                actualDec.append(DMStoDeg(float(dec[0]),float(dec[1]),float(dec[2])))
         with open(fileName, 'w') as file:
-            file.write(("Date\tTime\tRA\tDec\n").expandtabs(40))
+            file.write(("Date\tTime\tRA\tDec\tRA error\tDec error\n").expandtabs(35))
+            counter=0
             for date, time, ra, dec in results:
-                file.write((date+"\t"+time+"\t"+ra+"\t"+dec+"\n").expandtabs(40))
+                err=""
+                if not (actualEph==""):
+                    cra=ra.split()
+                    cdec=dec.split()
+                    err="\t"
+                    err+=str(error(actualRA[counter],HMStoDeg(float(cra[0]),float(cra[1]),float(cra[2]))))
+                    err+="\t"
+                    err+=str(error(actualDec[counter],DMStoDeg(float(cdec[0]),float(cdec[1]),float(cdec[2]))))
+                file.write((date+"\t"+time+"\t"+ra+"\t"+dec+err+"\n").expandtabs(35))
+                counter+=1
                 
     def exportMonteCarlo(self, fileName:str, vals:list, results):
         """ Exports Monte Carlo to a file
@@ -1109,11 +1128,12 @@ class OD:
         M=self.od.getTimeMeanAnomaly(time, date)
         self.data.printResults(fileName, self.pos, self.vel/self.toGaussian*(2*math.pi), self.rho, self.a, self.e, self.i, self.o, self.T, self.w, date, M)
         
-    def genEphemeris(self, inputFile:str, outputFile:str):
+    def genEphemeris(self, inputFile:str, outputFile:str, actualEph:str):
         """ Generates ephemeris for all times in a given sun position file. Exports to an output file
             Args:
                 inputFile (str): input file name
                 outputFile (str): output file name
+                actualEph (str): file with real values from JPL horizons
             Returns:
                 None
         """
@@ -1126,7 +1146,7 @@ class OD:
             dec=sign+str(dec[0]) + " " + str(dec[1]) + " " + str(dec[2])
             results.append([date,str(time),ra,dec])
         
-        self.data.exportEphemeris(outputFile, results)
+        self.data.exportEphemeris(outputFile, results, actualEph)
         
     def monteCarlo(self, n:int, files:str, outputFile:str, results:list, selTime:list=[], selDate:list=[]):
         """ Using uncertainty, runs through Method of Gauss n-times to generate orbital elements. 
@@ -1216,7 +1236,7 @@ class OD:
 
  
 # final functions
-def RunCompleteOD(iterations:int, inputFile:str, fitsFiles:list, sunFile:str, dates:list, results:list):
+def RunCompleteOD(iterations:int, inputFile:str, fitsFiles:list, sunFile:str, dates:list, results:list, actualEph:str):
     """ Runs complete orbit determination code. Generates three files:
             SoongODResults.txt (the results of orbital determination),
             SoongMonteCarloOutput.txt (the results from the Monte Carlo simulation),
@@ -1228,6 +1248,7 @@ def RunCompleteOD(iterations:int, inputFile:str, fitsFiles:list, sunFile:str, da
             sunFile (str): path for file containing times and sun positions for ephemeris generation
             dates (list): list of dates for orbital elements determination
             results (list): the actual values for orbital elements in the format [a,e,i,o,w,m,T] 
+            actualEph (str): the file path for the actual ephemeris from JPL Horizons
         Returns:
             None
     """
@@ -1249,17 +1270,18 @@ def RunCompleteOD(iterations:int, inputFile:str, fitsFiles:list, sunFile:str, da
     od.monteCarlo(iterations, fitsFiles, "SoongMonteCarloOutput.txt", results, selDate=dates)
     
     # generate the ephemeris
-    od.genEphemeris(sunFile, "SoongGeneratedEphemeris.txt")
+    od.genEphemeris(sunFile, "SoongGeneratedEphemeris.txt", actualEph)
     print("--- Ephemeris generation completed ---")
 
     
-def GenerateEphemeris(inputFile:str, ODdates:list, sunFile:str):
+def GenerateEphemeris(inputFile:str, ODdates:list, sunFile:str, actualEph:str):
     """ Outputs ephemeris to file. Generates one file:
             GeneratedEphemeris.txt (the results of ephemeris generation)
         Args:
             inputFile (str): path for file containing observations to determine orbital elements
             ODdates (list): list of dates for orbital elements determination
             sunFile (str): path for file containing times and sun positions for ephemeris generation
+            actualEph (str): path for file containing real ephemeris results from JPL Horizons
         Returns:
             None
     """
@@ -1270,6 +1292,6 @@ def GenerateEphemeris(inputFile:str, ODdates:list, sunFile:str):
     od.MoG(selDate=ODdates)
     
     # generate ephemeris
-    od.genEphemeris(sunFile, "GeneratedEphemeris.txt")
+    od.genEphemeris(sunFile, "GeneratedEphemeris.txt", actualEph)
     
     print("Finished generating ephemeris")

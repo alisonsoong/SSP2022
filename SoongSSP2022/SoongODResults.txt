@@ -8,12 +8,12 @@ Position From Earth (rho, AU):
 	[-0.19588349 -0.3603189   0.26081852]
 ----------------------------------------------
 Orbital Elements:
-	Semi-Major Axis: 1.5347335844052366
+	Semi-Major Axis (AU): 1.5347335844052366
 	Eccentricity: 0.19705335529721238
 	Inclination (deg): 11.297804647358708
 	Longitude of Ascending Node (deg): 196.30886625285262
-	Time of Perihelion Passage: 2459162.648031663
+	Time of Perihelion Passage (Julian days): 2459162.648031663
 	Argument of Perihelion (deg): 142.49765048391222
 ----------------------------------------------
-Mean Anomaly for July 24, 2022 7:00 UT:
+Mean Anomaly (deg) for July 24, 2022 7:00 UT:
 	322.51152657075056
